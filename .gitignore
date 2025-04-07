@@ -1,0 +1,47 @@
+# 依賴目錄
+node_modules/
+
+# 日誌文件
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 運行時數據
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 測試覆蓋率目錄
+coverage/
+.nyc_output
+
+# 打包目錄
+dist/
+build/
+out/
+
+# 環境變數文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 編輯器和 IDE 文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 爬蟲生成的 CSV 文件
+histock_table_*.csv
+
+# 其他
+.cache/
+.npm/
+.eslintcache

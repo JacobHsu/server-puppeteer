@@ -1,0 +1,21 @@
+{
+  "name": "server-puppeteer",
+  "version": "1.0.0",
+  "description": "使用Puppeteer爬取網站數據的工具",
+  "main": "histock-scraper.js",
+  "scripts": {
+    "start": "node histock-scraper.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "puppeteer",
+    "scraper",
+    "histock",
+    "csv"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^21.3.8"
+  }
+}
