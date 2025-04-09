@@ -13,7 +13,7 @@ async function scrapeCMoneyScore(stockCode, existingResults = {}) {
   const browser = await puppeteer.launch({
     headless: true, // 設置為true可以隱藏瀏覽器界面
     defaultViewport: null,
-    args: ['--start-maximized']
+    args: ['--start-maximized', '--no-sandbox', '--disable-setuid-sandbox']
   });
   
   try {
@@ -31,24 +31,50 @@ async function scrapeCMoneyScore(stockCode, existingResults = {}) {
     });
     
     // 等待頁面加載完成
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
     
     // 提取綜合平均分數
     console.log('正在提取綜合平均分數...');
     const score = await page.evaluate(() => {
-      // 尋找綜合平均分數元素
-      const scoreElement = document.querySelector('.score-total');
-      if (scoreElement) {
-        return scoreElement.textContent.trim();
+      // 方法1: 嘗試直接查找包含"綜合平均"文字的元素
+      const allElements = Array.from(document.querySelectorAll('div, span, p'));
+      for (const el of allElements) {
+        if (el.textContent && el.textContent.includes('綜合平均')) {
+          // 找到包含分數的元素，通常是附近的元素
+          const scoreText = el.textContent.trim();
+          // 提取數字
+          const match = scoreText.match(/綜合平均[：:]\s*(\d+)/);
+          if (match && match[1]) {
+            return match[1];
+          }
+          
+          // 如果在當前元素中沒找到數字，檢查相鄰元素
+          const siblings = el.parentElement ? Array.from(el.parentElement.children) : [];
+          for (const sibling of siblings) {
+            if (sibling !== el && /^\d+$/.test(sibling.textContent.trim())) {
+              return sibling.textContent.trim();
+            }
+          }
+        }
       }
       
-      // 如果找不到主要元素，嘗試其他可能的選擇器
-      const alternativeScoreElements = document.querySelectorAll('.score-item');
-      for (const element of alternativeScoreElements) {
-        if (element.textContent.includes('綜合平均')) {
-          const scoreValue = element.querySelector('.score-value');
-          if (scoreValue) {
-            return scoreValue.textContent.trim();
+      // 方法2: 嘗試查找特定的分數元素
+      const scoreElements = document.querySelectorAll('[class*="score"]');
+      for (const el of scoreElements) {
+        if (el.textContent && /^\d+$/.test(el.textContent.trim())) {
+          return el.textContent.trim();
+        }
+      }
+      
+      // 方法3: 嘗試查找技術分析區域中的分數
+      const techAnalysisSection = document.querySelector('[class*="tech"]') || 
+                                 document.querySelector('[id*="tech"]');
+      if (techAnalysisSection) {
+        const scoreEl = techAnalysisSection.querySelector('[class*="score"]');
+        if (scoreEl && /\d+/.test(scoreEl.textContent)) {
+          const match = scoreEl.textContent.match(/(\d+)/);
+          if (match && match[1]) {
+            return match[1];
           }
         }
       }
@@ -61,7 +87,13 @@ async function scrapeCMoneyScore(stockCode, existingResults = {}) {
       console.log(`成功提取到 ${stockCode} 的綜合平均分數: ${score}`);
       existingResults[stockCode] = score;
     } else {
-      console.log(`未能提取到 ${stockCode} 的綜合平均分數`);
+      console.log(`未能提取到 ${stockCode} 的綜合平均分數，嘗試截圖分析...`);
+      
+      // 如果無法提取到分數，保存頁面截圖以便後續分析
+      const screenshotPath = `cmoney_${stockCode}_screenshot.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      console.log(`已保存頁面截圖到 ${screenshotPath}`);
+      
       existingResults[stockCode] = "N/A";
     }
     
@@ -178,6 +210,20 @@ function readStockCodesFromFile(filePath) {
     }
     
     const content = fs.readFileSync(filePath, 'utf8');
+    
+    // 嘗試解析JSON格式
+    try {
+      const jsonData = JSON.parse(content);
+      if (Array.isArray(jsonData)) {
+        return jsonData;
+      } else if (typeof jsonData === 'object') {
+        return Object.keys(jsonData);
+      }
+    } catch (e) {
+      // 不是JSON格式，繼續嘗試其他格式
+    }
+    
+    // 嘗試解析文本格式（每行一個股票代碼）
     const stockCodes = content.split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0);
@@ -213,6 +259,7 @@ async function main() {
     // 嘗試從不同的文件中讀取股票代號
     const stockFilePaths = [
       'tw_stocks/score6_stocks.txt',
+      'tw_stocks/score6_stocks.json',
       'tw_stocks.txt'
     ];
     
